@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website Bengkel Pak Yono</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .glass {
+      backdrop-filter: blur(12px);
+      background: rgba(255, 255, 255, 0.15);
+      border: 2px solid rgba(255, 255, 255, 0.35);
+    }
+  </style>
+</head>
+<body class="bg-[#2C3E50] text-white">
+
+  <!-- NAVBAR -->
+  <nav class="w-full glass sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto flex justify-between items-center p-4">
+      <h1 class="text-2xl font-extrabold uppercase tracking-wide">Pak Yono Garage</h1>
+      <div class="space-x-6 font-semibold">
+        <a href="#about" class="hover:underline">Tentang</a>
+        <a href="#services" class="hover:underline">Layanan</a>
+        <a href="#contact" class="hover:underline">Kontak</a>
+        <a href="#faq" class="hover:underline">FAQ</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="py-28 px-6 bg-[#34495E]">
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center">
+      <div class="md:w-1/2">
+        <h2 class="text-4xl md:text-5xl font-black mb-4">Bengkel Modern Dengan Teknologi Canggih</h2>
+        <p class="text-lg mb-6 text-gray-300">Solusi perawatan kendaraan Anda dengan standar profesional dan alat terbaik.</p>
+        <a href="#contact" class="px-6 py-3 bg-[#7F8C8D] font-bold border-4 border-black rounded-lg shadow-[8px_8px_0px_0px_#000] hover:translate-x-1 hover:translate-y-1 transition-all">Hubungi Kami</a>
+      </div>
+      <div class="md:w-1/2 mt-10 md:mt-0">
+        <div class="glass p-6 rounded-2xl border-4 border-black shadow-[12px_12px_0px_0px_#000]">
+          <img src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1200" alt="Garage" class="rounded-xl">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section id="about" class="py-24 px-6">
+    <div class="max-w-5xl mx-auto">
+      <h3 class="text-4xl font-black mb-6 border-l-8 border-[#7F8C8D] pl-4">Tentang Kami</h3>
+      <p class="text-gray-300 text-lg leading-relaxed">
+        Bengkel Pak Yono adalah bengkel modern yang mengutamakan teknologi terbaru untuk meningkatkan kualitas servis kendaraan. 
+        Dengan teknisi berpengalaman dan peralatan canggih, kami siap membantu berbagai kebutuhan kendaraan Anda.
+      </p>
+    </div>
+  </section>
+
+  <!-- SERVICES -->
+  <section id="services" class="py-24 bg-[#34495E] px-6">
+    <div class="max-w-6xl mx-auto">
+      <h3 class="text-4xl font-black mb-10 border-l-8 border-[#7F8C8D] pl-4">Layanan Kami</h3>
+
+      <div class="grid md:grid-cols-3 gap-10">
+        <!-- Card -->
+        <div class="glass p-6 rounded-lg border-4 border-black shadow-[8px_8px_0px_0px_#000]">
+          <h4 class="text-2xl font-bold mb-3">Servis Mesin</h4>
+          <p class="text-gray-200">Pemeriksaan dan perbaikan mesin lengkap menggunakan alat diagnostik modern.</p>
+        </div>
+
+        <div class="glass p-6 rounded-lg border-4 border-black shadow-[8px_8px_0px_0px_#000]">
+          <h4 class="text-2xl font-bold mb-3">Tune Up</h4>
+          <p class="text-gray-200">Optimalkan performa kendaraan agar lebih bertenaga dan hemat bahan bakar.</p>
+        </div>
+
+        <div class="glass p-6 rounded-lg border-4 border-black shadow-[8px_8px_0px_0px_#000]">
+          <h4 class="text-2xl font-bold mb-3">Perbaikan Rem</h4>
+          <p class="text-gray-200">Pastikan keamanan berkendara dengan sistem pengereman terbaik.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section id="contact" class="py-24 px-6">
+    <div class="max-w-5xl mx-auto">
+      <h3 class="text-4xl font-black mb-6 border-l-8 border-[#7F8C8D] pl-4">Kontak</h3>
+
+      <div class="glass p-6 rounded-xl border-4 border-black shadow-[10px_10px_0px_0px_#000]">
+        <form class="grid gap-4">
+          <input type="text" placeholder="Nama Anda" class="p-3 rounded-lg text-black" required>
+          <input type="email" placeholder="Email" class="p-3 rounded-lg text-black" required>
+          <textarea placeholder="Pesan atau pertanyaan" class="p-3 rounded-lg text-black" rows="4"></textarea>
+          <button class="px-6 py-3 bg-[#7F8C8D] font-bold border-4 border-black rounded-lg shadow-[6px_6px_0px_0px_#000] hover:translate-x-1 hover:translate-y-1 transition-all">
+            Kirim Pesan
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" class="py-24 bg-[#34495E] px-6">
+    <div class="max-w-5xl mx-auto">
+      <h3 class="text-4xl font-black mb-10 border-l-8 border-[#7F8C8D] pl-4">FAQ</h3>
+
+      <div class="space-y-6">
+        <div class="glass p-5 rounded-lg border-4 border-black shadow-[6px_6px_0px_0px_#000]">
+          <h4 class="text-xl font-bold">Apakah harus booking dulu?</h4>
+          <p class="text-gray-200">Tidak wajib, tapi sangat disarankan agar tidak menunggu lama.</p>
+        </div>
+
+        <div class="glass p-5 rounded-lg border-4 border-black shadow-[6px_6px_0px_0px_#000]">
+          <h4 class="text-xl font-bold">Apakah menerima servis mobil?</h4>
+          <p class="text-gray-200">Ya, kami melayani motor dan mobil.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="py-8 text-center bg-[#2C3E50] border-t-4 border-black">
+    <p class="text-gray-300">&copy; 2025 Bengkel Pak Yono • Teknologi & Kecepatan</p>
+  </footer>
+
+</body>
+</html>

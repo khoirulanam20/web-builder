@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Neo Brutalism Theme - Dark Palette */
+:root {
+    --brutal-black: #000000;
+    --brutal-dark: #1a1a1a;
+    --brutal-gray: #404040;
+    --brutal-light-gray: #808080;
+    --brutal-white: #ffffff;
+    --brutal-accent-yellow: #ffff00;
+    --brutal-accent-cyan: #00ffff;
+    --brutal-accent-red: #ff0000;
+}
+
+/* Brutal Hard Shadow - No blur, sharp edges */
+.brutal-shadow {
+    box-shadow: 4px 4px 0px 0px var(--brutal-white);
+}
+
+.brutal-shadow-sm {
+    box-shadow: 2px 2px 0px 0px var(--brutal-white);
+}
+
+.brutal-shadow-lg {
+    box-shadow: 6px 6px 0px 0px var(--brutal-white);
+}
+
+.brutal-shadow-xl {
+    box-shadow: 8px 8px 0px 0px var(--brutal-white);
+}
+
+.brutal-shadow-accent {
+    box-shadow: 4px 4px 0px 0px var(--brutal-accent-yellow);
+}
+
+.brutal-shadow-cyan {
+    box-shadow: 4px 4px 0px 0px var(--brutal-accent-cyan);
+}
+
+/* Brutal Hover Effect - Move up and increase shadow */
+.brutal-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.brutal-hover:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px 0px var(--brutal-white);
+}
+
+.brutal-hover-accent:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px 0px var(--brutal-accent-yellow);
+}
+
+.brutal-hover-cyan:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px 0px var(--brutal-accent-cyan);
+}
+
+/* Grid Pattern Background - Brutal Style */
+.grid-pattern {
+    background-image: 
+        linear-gradient(var(--brutal-gray) 2px, transparent 2px),
+        linear-gradient(90deg, var(--brutal-gray) 2px, transparent 2px);
+    background-size: 40px 40px;
+    opacity: 0.4;
+}
+
+/* Brutal Border - Thick, sharp */
+.brutal-border {
+    border: 3px solid var(--brutal-white);
+}
+
+.brutal-border-thick {
+    border: 4px solid var(--brutal-white);
+}
+
+.brutal-border-accent {
+    border: 3px solid var(--brutal-accent-yellow);
+}
+
+.brutal-border-cyan {
+    border: 3px solid var(--brutal-accent-cyan);
+}
+
+/* Brutal Typography */
+.brutal-text {
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+}
+
+.brutal-text-outline {
+    -webkit-text-stroke: 2px var(--brutal-white);
+    -webkit-text-fill-color: transparent;
+}
+
+/* Brutal Background Patterns */
+.brutal-bg-stripes {
+    background: repeating-linear-gradient(
+        45deg,
+        var(--brutal-black),
+        var(--brutal-black) 10px,
+        var(--brutal-dark) 10px,
+        var(--brutal-dark) 20px
+    );
+}
+
+/* Remove rounded corners for brutal style */
+.brutal-no-radius {
+    border-radius: 0 !important;
+}
+
+/* SweetAlert2 Toast Styles */
+.swal2-toast {
+    font-family: inherit;
+    border: 3px solid var(--brutal-white) !important;
+    box-shadow: 4px 4px 0px 0px var(--brutal-white) !important;
+}
+
+.swal2-toast .swal2-title {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+}

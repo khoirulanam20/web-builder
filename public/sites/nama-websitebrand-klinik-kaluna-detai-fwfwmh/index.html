@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klinik Kaluna - Pelayanan Maksimal & Professional</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome untuk Ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Konfigurasi Tailwind Kustom -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // Menggunakan palet warna dari JSON
+                        primary: {
+                            DEFAULT: '#FF6B6B', // Coral Red - Warna Utama
+                            50: '#fff0f0',
+                            100: '#ffdede',
+                            500: '#FF6B6B',
+                            600: '#e05050',
+                            700: '#c23a3a',
+                        },
+                        secondary: {
+                            DEFAULT: '#FFE66D', // Yellow - Dekorasi/Highlight
+                            100: '#fffbd6',
+                            500: '#FFE66D',
+                        },
+                        accent: {
+                            DEFAULT: '#4ECDC4', // Turquoise - Aksen Medis
+                            50: '#f0fdfc',
+                            100: '#ccfbf7',
+                            500: '#4ECDC4',
+                            600: '#3dbbb3',
+                            700: '#2f9690',
+                            900: '#1a524e', // Versi gelap untuk background berat
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Animasi Kustom */
+        .fade-in-up {
+            animation: fadeInUp 0.8s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .input-focus {
+            @apply focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none transition-all duration-200;
+        }
+
+        /* Accordion Style untuk FAQ */
+        .faq-content {
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+        .faq-item.active .faq-content {
+            max-height: 200px; /* Adjust based on content */
+            opacity: 1;
+        }
+        .faq-icon {
+            transition: transform 0.3s ease;
+        }
+        .faq-item.active .faq-icon {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-700 font-sans">
+
+    <!-- NAVIGATION -->
+    <nav class="bg-white shadow-md fixed w-full z-50 transition-all duration-300" id="navbar">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-20">
+                <div class="flex items-center">
+                    <a href="#" class="flex items-center gap-2">
+                        <div class="bg-primary-500 text-white p-2 rounded-lg">
+                            <i class="fa-solid fa-heart-pulse text-xl"></i>
+                        </div>
+                        <span class="font-bold text-xl tracking-tight text-gray-900">Klinik <span class="text-primary-500">Kaluna</span></span>
+                    </a>
+                </div>
+                
+                <!-- Desktop Menu -->
+                <div class="hidden md:flex items-center space-x-6 lg:space-x-8">
+                    <a href="#home" class="text-gray-600 hover:text-primary-600 font-medium transition">Beranda</a>
+                    <a href="#about" class="text-gray-600 hover:text-primary-600 font-medium transition">Tentang</a>
+                    <a href="#layanan" class="text-gray-600 hover:text-primary-600 font-medium transition">Layanan</a>
+                    <a href="#faq" class="text-gray-600 hover:text-primary-600 font-medium transition">FAQ</a>
+                    <a href="#booking" class="bg-primary-500 text-white px-5 py-2.5 rounded-full font-medium hover:bg-primary-600 transition shadow-lg shadow-primary-500/30">
+                        Booking Online
+                    </a>
+                </div>
+
+                <!-- Mobile Menu Button -->
+                <div class="md:hidden flex items-center">
+                    <button id="mobile-menu-btn" class="text-gray-600 hover:text-primary-600 focus:outline-none">
+                        <i class="fa-solid fa-bars text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Panel -->
+        <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-gray-100 absolute w-full shadow-lg">
+            <div class="px-4 pt-2 pb-6 space-y-2">
+                <a href="#home" class="block px-3 py-3 text-base font-medium text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-md">Beranda</a>
+                <a href="#about" class="block px-3 py-3 text-base font-medium text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-md">Tentang</a>
+                <a href="#layanan" class="block px-3 py-3 text-base font-medium text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-md">Layanan</a>
+                <a href="#faq" class="block px-3 py-3 text-base font-medium text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-md">FAQ</a>
+                <a href="#booking" class="block w-full text-center mt-4 bg-primary-500 text-white px-5 py-3 rounded-lg font-medium hover:bg-primary-600">
+                    Booking Online
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO SECTION -->
+    <section id="home" class="pt-28 pb-16 lg:pt-36 lg:pb-24 overflow-hidden relative">
+        <!-- Background decorative elements -->
+        <div class="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-secondary-100 opacity-50 blur-3xl"></div>
+        <div class="absolute bottom-0 left-0 -ml-20 -mb-20 w-72 h-72 rounded-full bg-accent-100 opacity-50 blur-3xl"></div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+            <div class="lg:grid lg:grid-cols-12 lg:gap-8 items-center">
+                <div class="lg:col-span-6 text-center lg:text-left fade-in-up">
+                    <span class="inline-block py-1 px-3 rounded-full bg-accent-100 text-accent-700 text-sm font-semibold mb-4">
+                        <i class="fa-solid fa-star text-secondary-500 mr-1"></i> Pelayanan Maksimal & Professional
+                    </span>
+                    <h1 class="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight mb-6">
+                        Selamat Datang di <br>
+                        <span class="text-primary-500">Klinik Kaluna</span>
+                    </h1>
+                    <p class="text-lg text-gray-600 mb-8 leading-relaxed">
+                        Kami hadir sebagai mitra kesehatan terpercaya untuk Anda dan keluarga. Dengan fasilitas modern dan tim medis yang berdedikasi, kesehatan Anda adalah prioritas kami.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                        <a href="#booking" class="bg-primary-500 text-white px-8 py-3.5 rounded-full font-semibold hover:bg-primary-600 transition shadow-lg shadow-primary-500/30 flex items-center justify-center gap-2">
+                            <i class="fa-regular fa-calendar-check"></i> Buat Janji
+                        </a>
+                        <a href="#about" class="bg-white text-gray-700 border border-gray-300 px-8 py-3.5 rounded-full font-semibold hover:bg-gray-50 transition flex items-center justify-center gap-2">
+                            Tentang Kami <i class="fa-solid fa-arrow-right text-sm"></i>
+                        </a>
+                    </div>
+                    
+                    <div class="mt-10 flex items-center justify-center lg:justify-start gap-8 text-gray-500">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-user-doctor text-accent-500 text-2xl"></i>
+                            <div>
+                                <p class="font-bold text-gray-900 text-lg">Profesional</p>
+                                <p class="text-xs">Tim Dokter Ahli</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-shield-heart text-accent-500 text-2xl"></i>
+                            <div>
+                                <p class="font-bold text-gray-900 text-lg">Terpercaya</p>
+                                <p class="text-xs">Layanan Terbaik</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="lg:col-span-6 mt-12 lg:mt-0 relative">
+                    <div class="relative rounded-2xl overflow-hidden shadow-2xl transform hover:scale-[1.01] transition duration-500 border-4 border-white">
+                        <!-- Mengganti placeholder dengan nuansa yang sesuai -->
+                        <img src="https://images.unsplash.com/photo-1638202993928-7267aad84c31?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
+                             alt="Klinik Kaluna Interior" 
+                             class="w-full h-auto object-cover"
+                             onerror="this.src='https://placehold.co/600x400/FF6B6B/white?text=Klinik+Kaluna'">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-8">
+                            <div class="text-white">
+                                <p class="font-bold text-lg">Siap Melayani 24/7</p>
+                                <p class="text-sm opacity-90">Kenyamanan Anda Prioritas Kami</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Floating Card -->
+                    <div class="absolute -bottom-6 -left-6 bg-white p-4 rounded-xl shadow-xl hidden lg:flex items-center gap-4 animate-bounce" style="animation-duration: 3s;">
+                        <div class="bg-secondary-100 p-3 rounded-full text-secondary-500">
+                            <i class="fa-solid fa-check text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-900">Modern</p>
+                            <p class="text-xs text-gray-500">Fasilitas Lengkap</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ABOUT SECTION (NEW) -->
+    <section id="about" class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="lg:grid lg:grid-cols-2 gap-12 items-center">
+                <div class="relative">
+                    <div class="absolute -top-4 -left-4 w-24 h-24 bg-secondary-500 rounded-full opacity-20"></div>
+                    <img src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
+                         alt="Tentang Klinik Kaluna" 
+                         class="rounded-2xl shadow-lg w-full relative z-10">
+                    <div class="absolute -bottom-4 -right-4 w-32 h-32 bg-accent-500 rounded-full opacity-10"></div>
+                </div>
+                <div class="mt-8 lg:mt-0">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-4">Tentang Klinik Kaluna</h2>
+                    <div class="w-20 h-1.5 bg-primary-500 rounded-full mb-6"></div>
+                    <p class="text-gray-600 mb-6 leading-relaxed">
+                        Klinik Kaluna didirikan dengan visi untuk memberikan layanan kesehatan yang inklusif, modern, dan berpusat pada pasien. Kami percaya bahwa setiap pasien berhak mendapatkan perawatan yang tidak hanya menyembuhkan secara fisik, tetapi juga memberikan ketenangan pikiran.
+                    </p>
+                    <p class="text-gray-600 mb-8 leading-relaxed">
+                        Dengan memadukan teknologi medis terkini dan sentuhan personal dari tim dokter kami, Klinik Kaluna siap menjadi mitra kesehatan keluarga Anda dalam setiap tahap kehidupan.
+                    </p>
+                    <ul class="space-y-3 mb-8">
+                        <li class="flex items-center gap-3 text-gray-700">
+                            <i class="fa-solid fa-circle-check text-accent-500"></i>
+                            <span>Standar Pelayanan Internasional</span>
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-700">
+                            <i class="fa-solid fa-circle-check text-accent-500"></i>
+                            <span>Rekam Medis Terintegrasi Digital</span>
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-700">
+                            <i class="fa-solid fa-circle-check text-accent-500"></i>
+                            <span>Lingkungan Klinik yang Nyaman & Higienis</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FEATURES SECTION (NEW) -->
+    <section id="features" class="py-16 bg-accent-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">Kenapa Memilih Kami?</h2>
+                <p class="text-gray-600">Keunggulan Klinik Kaluna untuk kesehatan Anda</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Feature 1 -->
+                <div class="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition duration-300 border-b-4 border-primary-500">
+                    <div class="w-16 h-16 bg-primary-50 rounded-xl flex items-center justify-center text-primary-500 text-3xl mb-6">
+                        <i class="fa-solid fa-user-nurse"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Tenaga Medis Ahli</h3>
+                    <p class="text-gray-600 text-sm">Dokter dan perawat kami memiliki sertifikasi resmi dan pengalaman bertahun-tahun di bidangnya.</p>
+                </div>
+                
+                <!-- Feature 2 -->
+                <div class="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition duration-300 border-b-4 border-secondary-500">
+                    <div class="w-16 h-16 bg-secondary-100 rounded-xl flex items-center justify-center text-secondary-500 text-3xl mb-6">
+                        <i class="fa-solid fa-laptop-medical"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Teknologi Modern</h3>
+                    <p class="text-gray-600 text-sm">Peralatan diagnostik terbaru untuk hasil pemeriksaan yang akurat dan cepat.</p>
+                </div>
+                
+                <!-- Feature 3 -->
+                <div class="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition duration-300 border-b-4 border-accent-500">
+                    <div class="w-16 h-16 bg-accent-100 rounded-xl flex items-center justify-center text-accent-500 text-3xl mb-6">
+                        <i class="fa-solid fa-clock"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Booking Mudah</h3>
+                    <p class="text-gray-600 text-sm">Sistem reservasi online yang efisien tanpa perlu antre lama di klinik.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- LAYANAN SECTION -->
+    <section id="layanan" class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-gray-900 mb-4">Layanan Unggulan Kami</h2>
+                <p class="text-gray-600 max-w-2xl mx-auto">Kami menyediakan fasilitas kesehatan komprehensif dengan peralatan medis terkini untuk menunjang diagnosa dan pengobatan.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Card 1 -->
+                <div class="bg-gray-50 p-6 rounded-2xl hover:shadow-xl transition duration-300 group border border-gray-100 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-accent-100 rounded-bl-full opacity-50 transition-transform group-hover:scale-110"></div>
+                    <div class="w-14 h-14 bg-white shadow-sm rounded-xl flex items-center justify-center text-accent-500 text-2xl mb-4 relative z-10">
+                        <i class="fa-solid fa-stethoscope"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2 relative z-10">Poli Umum</h3>
+                    <p class="text-gray-600 text-sm mb-4 relative z-10">Pemeriksaan kesehatan dasar, konsultasi dokter umum, dan pengobatan penyakit.</p>
+                    <a href="#booking" class="text-primary-500 font-semibold text-sm hover:underline relative z-10">Daftar Sekarang &rarr;</a>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="bg-gray-50 p-6 rounded-2xl hover:shadow-xl transition duration-300 group border border-gray-100 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-secondary-100 rounded-bl-full opacity-50 transition-transform group-hover:scale-110"></div>
+                    <div class="w-14 h-14 bg-white shadow-sm rounded-xl flex items-center justify-center text-secondary-500 text-2xl mb-4 relative z-10">
+                        <i class="fa-solid fa-tooth"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2 relative z-10">Poli Gigi</h3>
+                    <p class="text-gray-600 text-sm mb-4 relative z-10">Perawatan gigi lengkap mulai dari tambal, cabut, hingga estetika gigi.</p>
+                    <a href="#booking" class="text-primary-500 font-semibold text-sm hover:underline relative z-10">Daftar Sekarang &rarr;</a>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="bg-gray-50 p-6 rounded-2xl hover:shadow-xl transition duration-300 group border border-gray-100 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-primary-100 rounded-bl-full opacity-50 transition-transform group-hover:scale-110"></div>
+                    <div class="w-14 h-14 bg-white shadow-sm rounded-xl flex items-center justify-center text-primary-500 text-2xl mb-4 relative z-10">
+                        <i class="fa-solid fa-baby"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2 relative z-10">Kesehatan Anak</h3>
+                    <p class="text-gray-600 text-sm mb-4 relative z-10">Imunisasi, pantau tumbuh kembang, dan penanganan penyakit anak.</p>
+                    <a href="#booking" class="text-primary-500 font-semibold text-sm hover:underline relative z-10">Daftar Sekarang &rarr;</a>
+                </div>
+
+                <!-- Card 4 -->
+                <div class="bg-gray-50 p-6 rounded-2xl hover:shadow-xl transition duration-300 group border border-gray-100 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-gray-200 rounded-bl-full opacity-50 transition-transform group-hover:scale-110"></div>
+                    <div class="w-14 h-14 bg-white shadow-sm rounded-xl flex items-center justify-center text-gray-600 text-2xl mb-4 relative z-10">
+                        <i class="fa-solid fa-flask"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2 relative z-10">Laboratorium</h3>
+                    <p class="text-gray-600 text-sm mb-4 relative z-10">Cek darah lengkap, gula darah, dan pemeriksaan diagnostik akurat.</p>
+                    <a href="#booking" class="text-primary-500 font-semibold text-sm hover:underline relative z-10">Daftar Sekarang &rarr;</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ SECTION (NEW) -->
+    <section id="faq" class="py-16 bg-accent-50/50">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">Pertanyaan Umum (FAQ)</h2>
+                <p class="text-gray-600">Jawaban untuk pertanyaan yang sering diajukan pasien.</p>
+            </div>
+
+            <div class="space-y-4">
+                <!-- FAQ Item 1 -->
+                <div class="faq-item bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden cursor-pointer" onclick="toggleFaq(this)">
+                    <div class="p-4 flex justify-between items-center bg-white hover:bg-gray-50 transition">
+                        <h3 class="font-semibold text-gray-800">Apakah Klinik Kaluna menerima BPJS?</h3>
+                        <i class="fa-solid fa-chevron-down text-gray-400 faq-icon"></i>
+                    </div>
+                    <div class="faq-content bg-gray-50">
+                        <div class="p-4 text-gray-600 text-sm border-t border-gray-100">
+                            Ya, Klinik Kaluna bekerjasama dengan BPJS Kesehatan dan berbagai asuransi swasta lainnya untuk memudahkan akses layanan kesehatan Anda.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ Item 2 -->
+                <div class="faq-item bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden cursor-pointer" onclick="toggleFaq(this)">
+                    <div class="p-4 flex justify-between items-center bg-white hover:bg-gray-50 transition">
+                        <h3 class="font-semibold text-gray-800">Bagaimana cara membatalkan janji temu?</h3>
+                        <i class="fa-solid fa-chevron-down text-gray-400 faq-icon"></i>
+                    </div>
+                    <div class="faq-content bg-gray-50">
+                        <div class="p-4 text-gray-600 text-sm border-t border-gray-100">
+                            Anda dapat menghubungi admin kami melalui WhatsApp minimal 3 jam sebelum jadwal janji temu untuk melakukan pembatalan atau penjadwalan ulang.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ Item 3 -->
+                <div class="faq-item bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden cursor-pointer" onclick="toggleFaq(this)">
+                    <div class="p-4 flex justify-between items-center bg-white hover:bg-gray-50 transition">
+                        <h3 class="font-semibold text-gray-800">Apakah ada layanan gawat darurat?</h3>
+                        <i class="fa-solid fa-chevron-down text-gray-400 faq-icon"></i>
+                    </div>
+                    <div class="faq-content bg-gray-50">
+                        <div class="p-4 text-gray-600 text-sm border-t border-gray-100">
+                            Kami menyediakan layanan pertolongan pertama (P3K) dan observasi awal. Untuk kondisi kritis yang memerlukan penanganan lanjut, kami akan merujuk ke RS rekanan terdekat dengan ambulans.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- BOOKING SECTION (CONTACT) -->
+    <section id="booking" class="py-20 bg-accent-900 relative">
+        <!-- Background Pattern -->
+        <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 30px 30px;"></div>
+
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row">
+                
+                <!-- Left Side: Info -->
+                <div class="lg:w-2/5 bg-accent-600 p-10 text-white flex flex-col justify-between relative overflow-hidden">
+                    <div class="absolute top-0 right-0 -mr-10 -mt-10 w-40 h-40 bg-white opacity-10 rounded-full"></div>
+                    <div class="absolute bottom-0 left-0 -ml-10 -mb-10 w-40 h-40 bg-white opacity-10 rounded-full"></div>
+                    
+                    <div>
+                        <h3 class="text-2xl font-bold mb-6">Jadwal Praktek</h3>
+                        <ul class="space-y-4 text-accent-100 text-sm">
+                            <li class="flex justify-between border-b border-accent-500 pb-2">
+                                <span>Senin - Jumat</span>
+                                <span class="font-semibold text-white">08:00 - 21:00</span>
+                            </li>
+                            <li class="flex justify-between border-b border-accent-500 pb-2">
+                                <span>Sabtu</span>
+                                <span class="font-semibold text-white">08:00 - 18:00</span>
+                            </li>
+                            <li class="flex justify-between border-b border-accent-500 pb-2">
+                                <span>Minggu</span>
+                                <span class="font-semibold text-white">09:00 - 15:00</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="mt-10">
+                        <h4 class="font-bold text-lg mb-2">Hubungi Kami</h4>
+                        <p class="text-accent-100 text-sm mb-4">Ada pertanyaan sebelum booking?</p>
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="bg-white/20 p-2 rounded-full w-10 h-10 flex items-center justify-center">
+                                <i class="fa-solid fa-phone text-sm"></i>
+                            </div>
+                            <span class="font-bold">021-555-KLNA</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="bg-white/20 p-2 rounded-full w-10 h-10 flex items-center justify-center">
+                                <i class="fa-solid fa-location-dot text-sm"></i>
+                            </div>
+                            <span class="text-sm">Jl. Sehat Sentosa No. 88, Jakarta</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side: Form -->
+                <div class="lg:w-3/5 p-8 lg:p-12">
+                    <div class="mb-8">
+                        <span class="text-primary-500 font-bold tracking-wide uppercase text-sm">Booking Online</span>
+                        <h2 class="text-3xl font-bold text-gray-900 mt-2">Buat Janji Temu</h2>
+                        <p class="text-gray-500 mt-2 text-sm">Isi formulir di bawah ini untuk reservasi antrian prioritas.</p>
+                    </div>
+
+                    <form id="bookingForm" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                                <input type="text" id="name" required class="w-full px-4 py-3 rounded-lg border border-gray-300 input-focus" placeholder="Nama Pasien">
+                            </div>
+                            <div>
+                                <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Nomor WhatsApp</label>
+                                <input type="tel" id="phone" required class="w-full px-4 py-3 rounded-lg border border-gray-300 input-focus" placeholder="0812...">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="date" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Rencana</label>
+                                <input type="date" id="date" required class="w-full px-4 py-3 rounded-lg border border-gray-300 input-focus text-gray-500">
+                            </div>
+                            <div>
+                                <label for="service" class="block text-sm font-medium text-gray-700 mb-1">Poli Tujuan</label>
+                                <select id="service" class="w-full px-4 py-3 rounded-lg border border-gray-300 input-focus bg-white">
+                                    <option>Poli Umum</option>
+                                    <option>Poli Gigi</option>
+                                    <option>Poli Anak</option>
+                                    <option>Cek Laboratorium</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="message" class="block text-sm font-medium text-gray-700 mb-1">Keluhan / Pesan</label>
+                            <textarea id="message" rows="3" class="w-full px-4 py-3 rounded-lg border border-gray-300 input-focus" placeholder="Contoh: Demam sejak 2 hari lalu..."></textarea>
+                        </div>
+
+                        <button type="submit" class="w-full bg-primary-500 text-white font-bold py-4 rounded-lg hover:bg-primary-600 transition duration-300 shadow-lg shadow-primary-500/30 flex justify-center items-center gap-2">
+                            <span>Kirim Booking Sekarang</span>
+                            <i class="fa-regular fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="bg-gray-900 text-white pt-16 pb-8 border-t-4 border-secondary-500">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+                <!-- Info -->
+                <div>
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="bg-white/10 p-1.5 rounded text-primary-500">
+                            <i class="fa-solid fa-heart-pulse text-xl"></i>
+                        </div>
+                        <span class="font-bold text-xl">Klinik <span class="text-primary-500">Kaluna</span></span>
+                    </div>
+                    <p class="text-gray-400 text-sm leading-relaxed mb-6">
+                        Klinik modern dengan pelayanan maksimal dan professional untuk kesehatan keluarga Indonesia.
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-primary-500 transition"><i class="fa-brands fa-facebook-f"></i></a>
+                        <a href="#" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-primary-500 transition"><i class="fa-brands fa-instagram"></i></a>
+                        <a href="#" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-primary-500 transition"><i class="fa-brands fa-whatsapp"></i></a>
+                    </div>
+                </div>
+
+                <!-- Links -->
+                <div>
+                    <h4 class="text-lg font-bold mb-4 text-secondary-500">Menu</h4>
+                    <ul class="space-y-2 text-gray-400 text-sm">
+                        <li><a href="#home" class="hover:text-primary-500 transition">Beranda</a></li>
+                        <li><a href="#about" class="hover:text-primary-500 transition">Tentang Kami</a></li>
+                        <li><a href="#layanan" class="hover:text-primary-500 transition">Layanan</a></li>
+                        <li><a href="#faq" class="hover:text-primary-500 transition">FAQ</a></li>
+                    </ul>
+                </div>
+
+                <!-- Services -->
+                <div>
+                    <h4 class="text-lg font-bold mb-4 text-secondary-500">Layanan</h4>
+                    <ul class="space-y-2 text-gray-400 text-sm">
+                        <li>Poli Umum & Gigi</li>
+                        <li>Kesehatan Ibu & Anak</li>
+                        <li>Laboratorium Medis</li>
+                        <li>Medical Check Up</li>
+                        <li>Vaksinasi</li>
+                    </ul>
+                </div>
+
+                <!-- Contact -->
+                <div>
+                    <h4 class="text-lg font-bold mb-4 text-secondary-500">Kontak</h4>
+                    <ul class="space-y-4 text-gray-400 text-sm">
+                        <li class="flex items-start gap-3">
+                            <i class="fa-solid fa-location-dot mt-1 text-primary-500"></i>
+                            <span>Jl. Sehat Sentosa No. 88, Jakarta Selatan</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <i class="fa-solid fa-envelope text-primary-500"></i>
+                            <span>admin@klinikkaluna.com</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border-t border-gray-800 pt-8 text-center">
+                <p class="text-gray-500 text-sm">&copy; 2023 Klinik Kaluna. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- SUCCESS MODAL -->
+    <div id="successModal" class="fixed inset-0 z-[100] hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
+        <div class="flex min-h-full items-center justify-center p-4 text-center">
+            <div class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg p-8 scale-90 opacity-0 transition-all duration-300" id="modalContent">
+                <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-6">
+                    <i class="fa-solid fa-check text-2xl text-green-600"></i>
+                </div>
+                <div class="text-center">
+                    <h3 class="text-2xl font-bold text-gray-900 mb-2">Booking Berhasil!</h3>
+                    <p class="text-sm text-gray-500 mb-6">
+                        Terima kasih, <span id="modalName" class="font-bold text-gray-800"></span>. <br>
+                        Data janji temu Anda untuk tanggal <span id="modalDate" class="font-bold text-gray-800"></span> di <span id="modalPoli" class="font-bold text-gray-800"></span> telah kami terima.
+                    </p>
+                    <button type="button" onclick="closeModal()" class="w-full inline-flex justify-center rounded-lg bg-primary-500 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // --- Mobile Menu Logic ---
+        const btn = document.getElementById('mobile-menu-btn');
+        const menu = document.getElementById('mobile-menu');
+
+        btn.addEventListener('click', () => {
+            menu.classList.toggle('hidden');
+        });
+
+        document.querySelectorAll('#mobile-menu a').forEach(link => {
+            link.addEventListener('click', () => {
+                menu.classList.add('hidden');
+            });
+        });
+
+        // --- Navbar Scroll Effect ---
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 10) {
+                navbar.classList.add('shadow-lg', 'bg-white/95', 'backdrop-blur-md');
+            } else {
+                navbar.classList.remove('shadow-lg', 'bg-white/95', 'backdrop-blur-md');
+            }
+        });
+
+        // --- FAQ Logic ---
+        function toggleFaq(element) {
+            // Close other items
+            const allItems = document.querySelectorAll('.faq-item');
+            allItems.forEach(item => {
+                if (item !== element) {
+                    item.classList.remove('active');
+                }
+            });
+            // Toggle clicked item
+            element.classList.toggle('active');
+        }
+
+        // --- Booking Form Handling ---
+        const form = document.getElementById('bookingForm');
+        const modal = document.getElementById('successModal');
+        const modalContent = document.getElementById('modalContent');
+        const modalName = document.getElementById('modalName');
+        const modalDate = document.getElementById('modalDate');
+        const modalPoli = document.getElementById('modalPoli');
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('name').value;
+            const date = document.getElementById('date').value;
+            const service = document.getElementById('service').value;
+
+            modalName.textContent = name;
+            modalDate.textContent = date;
+            modalPoli.textContent = service;
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modalContent.classList.remove('scale-90', 'opacity-0');
+                modalContent.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            
+            form.reset();
+        });
+
+        function closeModal() {
+            modalContent.classList.remove('scale-100', 'opacity-100');
+            modalContent.classList.add('scale-90', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+    </script>
+</body>
+</html>
