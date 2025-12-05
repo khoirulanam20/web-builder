@@ -6,6 +6,8 @@
             variant === 'warning' ? 'bg-yellow-400 text-black' : '',
             variant === 'danger' ? 'bg-red-500 text-white' : '',
             variant === 'info' ? 'bg-cyan-400 text-black' : '',
+            variant === 'accent' ? 'bg-yellow-400 text-black' : '',
+            variant === 'primary' ? 'bg-blue-500 text-white' : '',
             variant === 'default' ? 'bg-gray-800 text-white' : '',
             className
         ]"
@@ -22,7 +24,7 @@ defineProps({
     variant: {
         type: String,
         default: 'default',
-        validator: (value) => ['default', 'success', 'warning', 'danger', 'info'].includes(value),
+        validator: (value) => ['default', 'success', 'warning', 'danger', 'info', 'accent', 'primary'].includes(value),
     },
     className: {
         type: String,

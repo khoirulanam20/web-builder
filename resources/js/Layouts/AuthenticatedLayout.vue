@@ -57,6 +57,18 @@ useFlashMessages();
                                 >
                                     DASHBOARD
                                 </Link>
+                                <Link
+                                    v-if="$page.props.auth.user?.isAdmin"
+                                    :href="route('admin.dashboard')"
+                                    :class="[
+                                        route().current('admin.*')
+                                            ? 'border-b-4 border-yellow-400 text-white'
+                                            : 'border-b-4 border-transparent text-gray-400 hover:border-white hover:text-white',
+                                        'inline-flex items-center px-1 pt-1 text-sm font-black transition-colors',
+                                    ]"
+                                >
+                                    ADMIN
+                                </Link>
                             </div>
                         </div>
 
@@ -158,6 +170,13 @@ useFlashMessages();
                             :active="route().current('dashboard')"
                         >
                             DASHBOARD
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            v-if="$page.props.auth.user?.isAdmin"
+                            :href="route('admin.dashboard')"
+                            :active="route().current('admin.*')"
+                        >
+                            ADMIN
                         </ResponsiveNavLink>
                     </div>
 
