@@ -34,33 +34,40 @@ class AIGeneratorService
         $baseUrl = config('services.openrouter.base_url', 'https://openrouter.ai/api/v1/chat/completions');
         $referer = config('services.openrouter.referer', config('app.url'));
         $title = config('services.openrouter.title', 'AI Web Generator');
+        // Gunakan model yang pintar coding. Rekomendasi: anthropic/claude-3.5-sonnet, openai/gpt-4o, atau google/gemini-pro-1.5
         $model = config('services.openrouter.model', 'anthropic/claude-3.5-sonnet'); 
 
         if (empty($apiKey)) {
             throw new \RuntimeException('OPENROUTER_API_KEY tidak ditemukan di file .env. Silakan tambahkan API key Anda dari https://openrouter.ai/keys');
         }
 
+        // Validasi format API key (harus dimulai dengan sk-)
         if (!str_starts_with($apiKey, 'sk-') && !str_starts_with($apiKey, 'sk-or-')) {
             Log::warning('OpenRouter API Key format mungkin tidak valid', [
                 'key_prefix' => substr($apiKey, 0, 10) . '...',
             ]);
         }
 
-        // 1. Build The System Prompt (dengan user prompt untuk detect style)
-        $systemPrompt = $this->buildSystemPrompt($prompt, $formData);
+        // 1. Build The System Prompt
+        $systemPrompt = $this->buildSystemPrompt($formData);
 
         // 2. Build The User Prompt (Contextualized)
         $userPrompt = $this->buildUserPrompt($prompt, $formData);
 
         // 3. Estimasi token dan batasi panjang prompt
-        $estimatedSystemTokens = intval(strlen($systemPrompt) / 3.5);
+        // Rough estimate: 1 token ≈ 4 characters untuk bahasa Inggris, lebih untuk bahasa lain
+        // Model limit biasanya 65535 tokens total (input + output)
+        // Kita batasi: input maksimal 45000 tokens, output maksimal 16000 tokens
+        
+        $estimatedSystemTokens = intval(strlen($systemPrompt) / 3.5); // Lebih konservatif
         $estimatedUserTokens = intval(strlen($userPrompt) / 3.5);
         $totalInputTokens = $estimatedSystemTokens + $estimatedUserTokens;
         
-        $maxInputTokens = 45000;
+        // Jika total input terlalu panjang, potong user prompt
+        $maxInputTokens = 45000; // Safe limit untuk input
         if ($totalInputTokens > $maxInputTokens) {
             $maxUserPromptLength = intval(($maxInputTokens - $estimatedSystemTokens) * 3.5);
-            if ($maxUserPromptLength > 1000) {
+            if ($maxUserPromptLength > 1000) { // Minimal 1000 chars untuk user prompt
                 $originalUserPrompt = $userPrompt;
                 $userPrompt = substr($userPrompt, 0, $maxUserPromptLength) . "\n\n[Catatan: Prompt dipotong karena terlalu panjang. Silakan gunakan prompt yang lebih singkat untuk hasil optimal.]";
                 Log::warning('User prompt terlalu panjang, dipotong', [
@@ -72,13 +79,15 @@ class AIGeneratorService
         }
 
         // Tentukan max_tokens berdasarkan model
-        $maxOutputTokens = 16000;
+        // Amazon Nova memiliki limit 65535 total tokens
+        // Claude 3.5 Sonnet memiliki limit 8192 output tokens
+        $maxOutputTokens = 16000; // Default untuk model umum
         if (str_contains(strtolower($model), 'nova')) {
-            $maxOutputTokens = 15000;
+            $maxOutputTokens = 15000; // Lebih konservatif untuk Nova
         } elseif (str_contains(strtolower($model), 'claude')) {
-            $maxOutputTokens = 8000;
+            $maxOutputTokens = 8000; // Claude limit
         } elseif (str_contains(strtolower($model), 'gpt-4')) {
-            $maxOutputTokens = 8000;
+            $maxOutputTokens = 8000; // GPT-4 limit
         }
 
         // Prepare messages - include image if available for vision-capable models
@@ -86,7 +95,9 @@ class AIGeneratorService
             ['role' => 'system', 'content' => $systemPrompt],
         ];
         
+        // Jika ada gambar referensi, coba gunakan format vision untuk model yang mendukung
         if (!empty($formData['reference_image_base64']) && !empty($formData['reference_image_mime_type'])) {
+            // Cek apakah model mendukung vision (GPT-4 Vision, Claude dengan vision, dll)
             $visionModels = ['gpt-4-vision', 'gpt-4o', 'claude-3', 'claude-3.5'];
             $supportsVision = false;
             foreach ($visionModels as $visionModel) {
@@ -97,6 +108,7 @@ class AIGeneratorService
             }
             
             if ($supportsVision) {
+                // Format untuk vision-capable models (OpenAI/Anthropic format)
                 $imageUrl = 'data:' . $formData['reference_image_mime_type'] . ';base64,' . $formData['reference_image_base64'];
                 
                 $imageAnalysisPrompt = "\n\nANALISA GAMBAR REFERENSI:\nGambar referensi telah disertakan. Analisa gambar ini secara detail dan gunakan sebagai referensi untuk:\n- Layout dan struktur halaman (grid, spacing, alignment)\n- Skema warna dan palet (extract warna dominan dari gambar)\n- Gaya visual dan estetika (modern, minimalis, bold, dll)\n- Komposisi elemen (card design, button style, typography)\n- Mood dan tone desain (professional, playful, elegant, dll)\n\nPastikan website yang dihasilkan mencerminkan gaya visual dari gambar referensi ini.";
@@ -122,10 +134,12 @@ class AIGeneratorService
                     'mime_type' => $formData['reference_image_mime_type'],
                 ]);
             } else {
+                // Model tidak mendukung vision, gunakan text prompt saja
                 $referenceImageNote = "\n\nREFERENCE IMAGE:\nUser telah mengupload gambar referensi untuk desain. Gunakan gambar referensi ini sebagai inspirasi untuk layout, warna, gaya visual, dan komposisi elemen.";
                 $messages[] = ['role' => 'user', 'content' => $userPrompt . $referenceImageNote];
             }
         } else {
+            // Tidak ada gambar, gunakan prompt biasa
             $messages[] = ['role' => 'user', 'content' => $userPrompt];
         }
 
@@ -138,7 +152,7 @@ class AIGeneratorService
             ])->timeout(120)->post($baseUrl, [
                 'model' => $model,
                 'messages' => $messages,
-                'temperature' => 0.85, // Naikkan untuk hasil lebih kreatif
+                'temperature' => 0.7, // Kreatif tapi terstruktur
                 'max_tokens' => $maxOutputTokens,
             ]);
 
@@ -146,14 +160,17 @@ class AIGeneratorService
                 $this->handleApiError($response);
             }
 
+            // Log full response untuk debugging
             $responseBody = $response->json();
             Log::info('OpenRouter API Response', [
                 'status' => $response->status(),
                 'body' => $responseBody,
             ]);
 
+            // Cek berbagai kemungkinan struktur response
             $content = $response->json('choices.0.message.content');
             
+            // Fallback: coba struktur alternatif
             if (empty($content)) {
                 $content = $response->json('choices.0.text') 
                     ?? $response->json('data.0.text')
@@ -161,6 +178,7 @@ class AIGeneratorService
             }
             
             if (empty($content)) {
+                // Log response lengkap untuk debugging
                 Log::error('AI returned empty response', [
                     'response_status' => $response->status(),
                     'response_body' => $responseBody,
@@ -177,13 +195,17 @@ class AIGeneratorService
                 throw new \RuntimeException($errorMsg);
             }
 
+            // 3. Post-Processing
             $content = $this->cleanOutput($content);
             $content = $this->injectDependencies($content);
+            
+            // JANGAN extract JavaScript - biarkan tetap di HTML
+            // JavaScript akan tetap di dalam HTML untuk kemudahan editing
 
             return [
                 'html' => $content,
-                'css' => null,
-                'js' => null,
+                'css' => null, // Tailwind handle CSS
+                'js' => null,  // JavaScript sudah di dalam HTML
             ];
 
         } catch (\Exception $e) {
@@ -204,18 +226,23 @@ class AIGeneratorService
             throw new \RuntimeException('GOOGLE_GEMINI_API_KEY tidak ditemukan di file .env. Silakan tambahkan API key Anda dari https://makersuite.google.com/app/apikey');
         }
 
+        // Get model from config
         $requestedModel = config('services.google_gemini.model', 'gemini-2.5-flash');
         
+        // Model yang tersedia untuk v1beta (urutkan dari yang paling direkomendasikan/terbaru)
+        // Catatan: gemini-pro dan gemini-1.5-flash sudah deprecated
         $availableModels = [
-            'gemini-2.5-flash',
-            'gemini-2.0-flash',
-            'gemini-1.5-pro-latest',
-            'gemini-1.5-pro',
+            'gemini-2.5-flash',      // Model flash generasi baru (lebih cepat & murah)
+            'gemini-2.0-flash',      // Model flash alternatif
+            'gemini-1.5-pro-latest', // Model pro yang lebih stabil
+            'gemini-1.5-pro',        // Model pro alternatif
         ];
         
+        // Jika model yang diminta tidak dalam daftar, tambahkan ke awal untuk dicoba dulu
         if (!in_array($requestedModel, $availableModels)) {
             array_unshift($availableModels, $requestedModel);
         } else {
+            // Pindahkan model yang diminta ke posisi pertama
             $key = array_search($requestedModel, $availableModels);
             if ($key !== false) {
                 unset($availableModels[$key]);
@@ -223,19 +250,21 @@ class AIGeneratorService
             }
         }
 
-        // 1. Build The System Prompt (dengan user prompt untuk detect style)
-        $systemPrompt = $this->buildSystemPrompt($prompt, $formData);
+        // 1. Build The System Prompt
+        $systemPrompt = $this->buildSystemPrompt($formData);
 
         // 2. Build The User Prompt (Contextualized)
         $userPrompt = $this->buildUserPrompt($prompt, $formData);
 
-        // Combine system and user prompt for Gemini
+        // Combine system and user prompt for Gemini (Gemini doesn't have separate system role)
         $fullPrompt = $systemPrompt . "\n\n" . $userPrompt;
 
+        // Prepare content parts - include image if available
         $contentParts = [
             ['text' => $fullPrompt]
         ];
         
+        // Jika ada gambar referensi, tambahkan ke content parts untuk Vision API
         if (!empty($formData['reference_image_base64']) && !empty($formData['reference_image_mime_type'])) {
             $contentParts[] = [
                 'inline_data' => [
@@ -244,6 +273,7 @@ class AIGeneratorService
                 ]
             ];
             
+            // Tambahkan instruksi khusus untuk analisa gambar
             $imageAnalysisPrompt = "\n\nANALISA GAMBAR REFERENSI:\nGambar referensi telah disertakan di atas. Analisa gambar ini secara detail dan gunakan sebagai referensi untuk:\n- Layout dan struktur halaman (grid, spacing, alignment)\n- Skema warna dan palet (extract warna dominan dari gambar)\n- Gaya visual dan estetika (modern, minimalis, bold, dll)\n- Komposisi elemen (card design, button style, typography)\n- Mood dan tone desain (professional, playful, elegant, dll)\n\nPastikan website yang dihasilkan mencerminkan gaya visual dari gambar referensi ini.";
             $contentParts[0]['text'] = $fullPrompt . $imageAnalysisPrompt;
             
@@ -253,13 +283,17 @@ class AIGeneratorService
             ]);
         }
 
+        // Try to generate with available models (urutkan dari yang diminta user, lalu fallback)
         $lastError = null;
         $response = null;
         $successfulModel = null;
         
         foreach ($availableModels as $tryModel) {
+            // Gemini API endpoint
+            // Format: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}
             $url = "{$baseUrl}/models/{$tryModel}:generateContent?key={$apiKey}";
             
+            // Log untuk debugging
             Log::info('Google Gemini API Request', [
                 'url' => str_replace($apiKey, '***', $url),
                 'model' => $tryModel,
@@ -276,18 +310,19 @@ class AIGeneratorService
                         ]
                     ],
                     'generationConfig' => [
-                        'temperature' => 0.85, // Naikkan untuk hasil lebih kreatif
+                        'temperature' => 0.7,
                         'topK' => 40,
                         'topP' => 0.95,
-                        'maxOutputTokens' => 32768,
+                        'maxOutputTokens' => 32768, // Increase lebih tinggi untuk memastikan HTML lengkap
                     ],
                 ]);
 
                 if ($response->successful()) {
-                    $successfulModel = $tryModel;
-                    break;
+                    $successfulModel = $tryModel; // Update model yang berhasil
+                    break; // Success, exit loop
                 }
                 
+                // Jika error 400/404 tentang model not found, coba model berikutnya
                 if ($response->status() === 400 || $response->status() === 404) {
                     $errorBody = $response->json();
                     $errorMsg = $errorBody['error']['message'] ?? '';
@@ -296,18 +331,21 @@ class AIGeneratorService
                         Log::warning("Model {$tryModel} tidak tersedia, mencoba model berikutnya", [
                             'error' => $errorMsg,
                         ]);
-                        continue;
+                        continue; // Try next model
                     }
                 }
                 
+                // Jika bukan error model not found, throw error
                 $this->handleGeminiApiError($response);
                 
             } catch (\Exception $e) {
                 $lastError = $e->getMessage();
+                // Continue to next model
                 continue;
             }
         }
         
+        // Jika semua model gagal
         if (!$response || !$response->successful()) {
             $modelsList = implode(', ', $availableModels);
             if ($lastError) {
@@ -316,6 +354,7 @@ class AIGeneratorService
             $this->handleGeminiApiError($response);
         }
 
+        // Log response untuk debugging
         $responseBody = $response->json();
         Log::info('Google Gemini API Response', [
             'status' => $response->status(),
@@ -324,6 +363,7 @@ class AIGeneratorService
             'requested_model' => $requestedModel,
         ]);
 
+        // Extract content from Gemini response
         $content = $response->json('candidates.0.content.parts.0.text');
         
         if (empty($content)) {
@@ -343,125 +383,88 @@ class AIGeneratorService
             throw new \RuntimeException($errorMsg);
         }
 
+        // 3. Post-Processing
         $content = $this->cleanOutput($content);
         $content = $this->injectDependencies($content);
+        
+        // JANGAN extract JavaScript - biarkan tetap di HTML
+        // JavaScript akan tetap di dalam HTML untuk kemudahan editing
 
         return [
             'html' => $content,
-            'css' => null,
-            'js' => null,
+            'css' => null, // Tailwind handle CSS
+            'js' => null,  // JavaScript sudah di dalam HTML
         ];
     }
 
     /**
-     * Detect design style dari prompt user
+     * Handle Google Gemini API errors
      */
-    private function detectDesignStyle(string $prompt, ?string $manualStyle = null): string
+    private function handleGeminiApiError($response): void
     {
-        // Jika ada manual style dari form, gunakan itu
-        if (!empty($manualStyle)) {
-            return $manualStyle;
-        }
-
-        $promptLower = mb_strtolower($prompt);
+        $body = $response->json();
+        $statusCode = $response->status();
+        $errorMsg = $body['error']['message'] ?? $response->body();
         
-        // Keyword mapping untuk detect style
-        $styleKeywords = [
-            'playful' => ['fun', 'funny', 'lucu', 'ceria', 'gembira', 'warna-warni', 'colorful', 'playful', 'main-main', 'santai', 'casual', 'relax'],
-            'luxury' => ['mewah', 'luxury', 'premium', 'high-end', 'exclusive', 'elite', 'mahal', 'berkelas', 'elegant', 'sophisticated', 'refined'],
-            'corporate' => ['kantor', 'corporate', 'bisnis', 'business', 'profesional', 'formal', 'enterprise', 'perusahaan', 'resmi', 'serius'],
-            'creative' => ['creative', 'kreatif', 'unik', 'unique', 'artistik', 'artistic', 'bold', 'berani', 'vibrant', 'energik', 'dynamic'],
-            'minimalist' => ['minimalis', 'minimalist', 'simple', 'sederhana', 'clean', 'bersih', 'swiss', 'grid', 'geometric'],
-            'tech' => ['tech', 'teknologi', 'futuristic', 'modern', 'digital', 'cyber', 'ai', 'software', 'startup', 'saas'],
-        ];
+        Log::error('Google Gemini API Error', [
+            'status' => $statusCode,
+            'response' => $body,
+        ]);
 
-        // Hitung score untuk setiap style
-        $scores = [];
-        foreach ($styleKeywords as $style => $keywords) {
-            $score = 0;
-            foreach ($keywords as $keyword) {
-                if (str_contains($promptLower, $keyword)) {
-                    $score += substr_count($promptLower, $keyword);
+        // Handle specific error codes
+        if ($statusCode === 401 || $statusCode === 403) {
+            $message = "API Key tidak valid atau tidak memiliki akses. ";
+            $message .= "Silakan periksa GOOGLE_GEMINI_API_KEY di file .env dan pastikan API key Anda valid di https://makersuite.google.com/app/apikey";
+            throw new \RuntimeException($message);
+        }
+
+        if ($statusCode === 429) {
+            $message = "Rate limit tercapai untuk Google Gemini API. ";
+            $message .= "Silakan coba lagi dalam beberapa detik.";
+            throw new \RuntimeException($message);
+        }
+
+        if ($statusCode === 400 || $statusCode === 404) {
+            $message = "Request tidak valid ke Google Gemini API. ";
+            if (isset($body['error']['message'])) {
+                $errorMessage = $body['error']['message'];
+                $message .= $errorMessage;
+                
+                // Jika error tentang model tidak ditemukan, berikan saran
+                if (str_contains(strtolower($errorMessage), 'not found') || str_contains(strtolower($errorMessage), 'not supported')) {
+                    $message .= "\n\nSaran: Model yang tersedia untuk v1beta API: gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-pro-latest, atau gemini-1.5-pro. ";
+                    $message .= "Ubah GOOGLE_GEMINI_MODEL di file .env menjadi salah satu model tersebut. ";
+                    $message .= "Sistem akan otomatis mencoba model lain jika model yang diminta tidak tersedia.";
                 }
+            } else {
+                $message .= "Periksa format request dan pastikan model yang digunakan tersedia.";
             }
-            if ($score > 0) {
-                $scores[$style] = $score;
-            }
+            throw new \RuntimeException($message);
         }
 
-        // Return style dengan score tertinggi, atau default 'modern'
-        if (!empty($scores)) {
-            arsort($scores);
-            return array_key_first($scores);
+        // Generic error message
+        $message = "Gagal generate website dengan Google Gemini: $errorMsg";
+        if ($statusCode >= 500) {
+            $message .= " (Server error dari Google Gemini. Silakan coba lagi nanti.)";
         }
 
-        return 'modern';
+        throw new \RuntimeException($message);
     }
 
     /**
-     * Get font pairing berdasarkan style
+     * Membangun System Prompt yang Universal dan Fleksibel (IMPROVED VERSION)
      */
-    private function getFontPairing(string $styleKey): array
+    private function buildSystemPrompt(array $formData): string
     {
-        $fontPairings = [
-            'playful' => [
-                'heading' => 'Comfortaa',
-                'body' => 'Nunito',
-                'url' => 'https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap',
-            ],
-            'luxury' => [
-                'heading' => 'Playfair Display',
-                'body' => 'Cormorant Garamond',
-                'url' => 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap',
-            ],
-            'corporate' => [
-                'heading' => 'Inter',
-                'body' => 'Open Sans',
-                'url' => 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap',
-            ],
-            'creative' => [
-                'heading' => 'Bebas Neue',
-                'body' => 'Poppins',
-                'url' => 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@400;500;600;700;800&display=swap',
-            ],
-            'minimalist' => [
-                'heading' => 'Space Grotesk',
-                'body' => 'Work Sans',
-                'url' => 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap',
-            ],
-            'tech' => [
-                'heading' => 'JetBrains Mono',
-                'body' => 'DM Sans',
-                'url' => 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap',
-            ],
-            'modern' => [
-                'heading' => 'Outfit',
-                'body' => 'Plus Jakarta Sans',
-                'url' => 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap',
-            ],
-        ];
-
-        return $fontPairings[$styleKey] ?? $fontPairings['modern'];
-    }
-
-    /**
-     * Build System Prompt dengan Design Persona Dinamis
-     */
-    private function buildSystemPrompt(string $userPrompt, array $formData = []): string
-    {
-        // Detect design style dari prompt
-        $detectedStyle = $this->detectDesignStyle($userPrompt, $formData['style_tone'] ?? null);
-        $fontPairing = $this->getFontPairing($detectedStyle);
-
-        // Style instructions berdasarkan detected style
-        $styleInstructions = match ($detectedStyle) {
-            'playful' => 'Style: "Playful & Vibrant". Use soft rounded corners (rounded-2xl, rounded-3xl), pastel or bright colors, bouncy animations (bounce, scale), playful illustrations vibe, generous spacing. Typography: Comfortable and friendly.',
-            'luxury' => 'Style: "High-End Luxury". Use gold/black or cream/charcoal palette. Uppercase tracking-widest typography. Thin 1px borders. Elegant transitions. Serif headings (Playfair Display) for sophistication. Minimal but impactful.',
-            'corporate' => 'Style: "Trustworthy Enterprise". Use deep blues/greys, ample whitespace, serif headings (Inter) mixed with clean sans-serif body (Open Sans). Box-shadows should be soft and diffuse. Professional and trustworthy.',
-            'creative' => 'Style: "Bold Creative Agency". Use heavy gradients, large typography (text-8xl), dark mode aesthetics, glassmorphism (backdrop-blur). Use abstract shapes in backgrounds. Bold and energetic.',
-            'minimalist' => 'Style: "Swiss Design Minimalism". Strict grid usage, high contrast black/white, very little color usage (only for CTAs), massive whitespace. Clean geometric shapes.',
-            'tech' => 'Style: "Modern Tech/SaaS". Think Linear.app, Stripe, or Vercel design. Subtle borders (border-white/10), gradients, soft glows, monospace headings for tech feel, rounded-xl components.',
-            default => 'Style: "Modern & Clean". Think contemporary SaaS products. Subtle borders, gradients, soft glows, modern typography, rounded-xl components.',
+        // Style Logic yang Lebih Modern
+        $style = $formData['style_tone'] ?? 'modern';
+        $styleInstructions = match ($style) {
+            'corporate' => 'Style: "Trustworthy Enterprise". Use deep blues/greys, ample whitespace, serif headings (Playfair Display) mixed with sans-serif body. Box-shadows should be soft and diffuse. No hard borders.',
+            'creative' => 'Style: "Digital Agency". Use heavy gradients, large typography (8xl), dark mode aesthetics, and glassmorphism (backdrop-blur). Use abstract shapes in backgrounds.',
+            'minimalist' => 'Style: "Swiss Design". Strict grid usage, high contrast black/white, very little color usage (only for CTAs), massive whitespace.',
+            'playful' => 'Style: "Modern Startup". Soft rounded corners (rounded-2xl), pastel colors, bouncy animations, illustrations vibe.',
+            'luxury' => 'Style: "High-End". Gold/Black or Cream/Charcoal palette. Uppercase tracking-widest typography. Thin 1px borders. Elegant transitions.',
+            default => 'Style: "Modern SaaS/Tech". Think Linear.app, Stripe, or Vercel design. Subtle borders (border-white/10), gradients, soft glows, inter typography, rounded-xl components.',
         };
 
         // Color Logic
@@ -472,80 +475,69 @@ class AIGeneratorService
             $a = $formData['accent_color'] ?? '#3b82f6';
             
             $colorPrompt = <<<EOT
-
-COLOR RULES (STRICT):
-- Primary Brand Color: $p (Use for main buttons, headers, key text)
-- Secondary Color: $s (Use for footers, backgrounds)
-- Accent Color: $a (Use for CTAs, highlights, icons)
-- YOU MUST convert these hex codes to Tailwind arbitrary values (e.g., bg-[$p], text-[$a]) or closest Tailwind classes.
-EOT;
+            COLOR RULES (STRICT):
+            - Primary Brand Color: $p (Use for main buttons, headers, key text)
+            - Secondary Color: $s (Use for footers, backgrounds)
+            - Accent Color: $a (Use for CTAs, highlights, icons)
+            - YOU MUST convert these hex codes to Tailwind arbitrary values (e.g., bg-[$p], text-[$a]) or closest Tailwind classes.
+            EOT;
         } else {
-            $colorPrompt = "\n\nCOLOR RULES:\nChoose a professional color palette derived from the context of the user request. Ensure high contrast and accessibility. Use colors that match the detected style: {$detectedStyle}.";
+            $colorPrompt = "Choose a professional color palette derived from the context of the user request. Ensure high contrast and accessibility.";
         }
-
-        // Pexels Image IDs - lebih variatif dan dikategorikan
-        $pexelsIds = [
-            'Business/Office' => ['3183150', '3184291', '3184292', '1181605', '3182812', '3184357', '3184360', '3184416', '3184423', '3184436'],
-            'Tech/Code' => ['1181244', '1181263', '577585', '546819', '1714208', '1181396', '1181467', '1181675', '1181695', '1181735'],
-            'Medical/Health' => ['416778', '3259628', '3259623', '5215024', '3038740', '40568', '40569', '40570', '40571', '40572'],
-            'Food/Restaurant' => ['1640777', '1267320', '958545', '262978', '699953', '1267321', '1267322', '1267323', '1267324', '1267325'],
-            'Nature/General' => ['3225517', '1761279', '1287145', '1323550', '1323551', '1323552', '1323553', '1323554', '1323555', '1323556'],
-            'Mechanic/Auto' => ['4489749', '3806249', '2244746', '190574', '3807386', '3807390', '3807395', '3807400', '3807405', '3807410'],
-            'Creative/Art' => ['1552242', '1552243', '1552244', '1552245', '1552246', '1552247', '1552248', '1552249', '1552250', '1552251'],
-            'Lifestyle/Fashion' => ['1926769', '1926770', '1926771', '1926772', '1926773', '1926774', '1926775', '1926776', '1926777', '1926778'],
-        ];
-
-        $pexelsList = [];
-        foreach ($pexelsIds as $category => $ids) {
-            $pexelsList[] = "- {$category}: " . implode(', ', $ids);
-        }
-        $pexelsListString = implode("\n", $pexelsList);
 
         return <<<EOT
-You are a World-Class UI/UX Designer and Senior Frontend Developer with a unique creative vision.
+You are a World-Class UI/UX Designer and Senior Frontend Developer.
 
-Your goal is to build a website that looks EXPENSIVE, TRUSTWORTHY, and HIGH-CONVERSION, but with a DISTINCTIVE visual identity that stands out.
+Your goal is to build a website that looks EXPENSIVE, TRUSTWORTHY, and HIGH-CONVERSION.
 
-### DESIGN PERSONA: {$detectedStyle}
-{$styleInstructions}
+### DESIGN SYSTEM RULES (MANDATORY):
 
-### TYPOGRAPHY SYSTEM:
-- Heading Font: {$fontPairing['heading']} (Use for all h1, h2, h3)
-- Body Font: {$fontPairing['body']} (Use for paragraphs, body text)
-- Font URL: {$fontPairing['url']}
-- Hero H1 size must be minimum `text-5xl md:text-7xl`.
-- Use proper font-weight hierarchy (400-800).
+1. **Typography Hierarchy**:
+   - Use `font-sans` for body. Headings must be bold and tight (tracking-tight).
+   - Hero H1 size must be minimum `text-5xl md:text-7xl`.
+   - Use `text-gray-500` for subtitles, never pure black.
 
-### LAYOUT PHILOSOPHY:
-1. **Asymmetric Layouts**: Break away from rigid grids. Use offset columns, overlapping elements, and varied section widths.
-2. **Bento Grids**: Use CSS Grid with varied spans (col-span-2, row-span-2) for visual interest.
-3. **Extreme Whitespace**: Section padding should be `py-20` or `py-24`. Gap between grid items should be `gap-8` or `gap-12`.
-4. **Visual Hierarchy**: Use size, color, and spacing to create clear visual hierarchy.
+2. **Visual Polish (The "Premium" Look)**:
+   - **Shadows**: NEVER use default shadows. Use `shadow-[0_8px_30px_rgb(0,0,0,0.12)]` or similar soft shadows.
+   - **Borders**: Use subtle borders: `border border-gray-100` (light) or `border border-white/10` (dark).
+   - **Gradients**: Use subtle background gradients to add depth (e.g., `bg-gradient-to-br from-gray-50 to-gray-100`).
+   - **Glassmorphism**: Use `backdrop-blur-md bg-white/70` for sticky navbars or overlay cards.
+   - **Spacing**: Use EXTREME whitespace. Section padding should be `py-20` or `py-24`. Gap between grid items should be `gap-8` or `gap-12`.
 
-### VISUAL POLISH:
-- **Shadows**: NEVER use default shadows. Use custom soft shadows: `shadow-[0_8px_30px_rgb(0,0,0,0.12)]` or `shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)]`.
-- **Borders**: Use subtle borders: `border border-gray-100` (light) or `border border-white/10` (dark).
-- **Gradients**: Use subtle background gradients to add depth (e.g., `bg-gradient-to-br from-gray-50 to-gray-100`).
-- **Glassmorphism**: Use `backdrop-blur-md bg-white/70` for sticky navbars or overlay cards when appropriate.
-- **Micro-Interactions**: Every button must have: `transition-all duration-300 hover:scale-105 active:scale-95`. Every card must have: `group hover:-translate-y-2 hover:shadow-2xl transition-all duration-300`.
+3. **Micro-Interactions**:
+   - Every button must have: `transition-all duration-300 hover:scale-105 active:scale-95`.
+   - Every card must have: `group hover:-translate-y-2 hover:shadow-2xl transition-all duration-300`.
+   - Images must have `hover:scale-105 transition-transform duration-700 ease-out` inside an `overflow-hidden` container.
 
 ### PEXELS IMAGE RULES (STRICT):
+
 Use the following strict logic for images. DO NOT hallucinate IDs.
+
 Format: `https://images.pexels.com/photos/[ID]/pexels-photo-[ID].jpeg?auto=compress&cs=tinysrgb&w=[WIDTH]`
 
-**IDs to Rotate (Pick Randomly by Category):**
-{$pexelsListString}
+**IDs to Rotate (Pick Randomly):**
+
+- Business/Office: `3183150`, `3184291`, `3184292`, `1181605`, `3182812`
+- Tech/Code: `1181244`, `1181263`, `577585`, `546819`, `1714208`
+- Medical: `416778`, `3259628`, `3259623`, `5215024`, `3038740`
+- Food: `1640777`, `1267320`, `958545`, `262978`, `699953`
+- Nature/General: `3225517`, `1761279`, `1287145`, `1323550`
+- Mechanic/Auto: `4489749`, `3806249`, `2244746`, `190574`, `3807386`
 
 **Image Styling**:
 - ALWAYS wrap images in a container with `rounded-2xl overflow-hidden shadow-lg`.
 - ALWAYS use `object-cover w-full h-full` class on the `<img>` tag.
 
 ### COMPONENT STRUCTURE:
+
 **IMPORTANT**: The user will specify which sections to include and their order. Follow that specification EXACTLY.
 
 Common sections and their requirements:
 1. **Navbar**: Sticky, Glassmorphism, Logo left, Links center, CTA right.
-2. **Hero**: Split layout (Text Left, Image Right) OR Center align with large background image + overlay. H1 must be huge (text-5xl md:text-7xl).
+2. **Hero**: 
+   - Split layout (Text Left, Image Right) OR Center align with large background image + overlay.
+   - H1 must be huge (text-5xl md:text-7xl).
+   - Add "Trusted by" section below Hero with grayscale logos (use FontAwesome icons as fake logos).
 3. **About**: Story section with image and text, or split layout.
 4. **Services**: Use Bento Grid layout (Grid spans) or Cards with icons.
 5. **Features**: Grid of feature cards with icons and descriptions.
@@ -558,37 +550,21 @@ Common sections and their requirements:
 12. **Contact**: Contact form with map or contact information.
 13. **Footer**: Links, Socials, Copyright, Newsletter signup.
 
-### CRITICAL OUTPUT REQUIREMENTS:
+### OUTPUT FORMAT:
 
-1. **Tailwind Config**: YOU MUST include a `<script>tailwind.config = {...}</script>` tag in the HTML output with:
-   - Custom `fontFamily` using the fonts specified above ({$fontPairing['heading']} for headings, {$fontPairing['body']} for body)
-   - Custom `colors` based on the color palette (use arbitrary values like `bg-[#hex]` or define custom color names)
-   - Custom `boxShadow` values for soft shadows
-   - Any other theme extensions that match the design style
+- Return ONLY valid HTML from `<!DOCTYPE html>` to `</html>`.
+- Include `<script src="https://cdn.tailwindcss.com"></script>` in head.
+- Include FontAwesome CDN.
+- **Inject Modern Fonts**: Include Google Fonts link for 'Outfit' and 'Plus Jakarta Sans'.
+- **Animation Script**: Include a simple Intersection Observer script at the bottom to fade-in elements when they scroll into view (add class `opacity-0 translate-y-10` initially, remove on scroll).
 
-2. **Google Fonts**: Include the Google Fonts link in `<head>`: `{$fontPairing['url']}`
+$colorPrompt
 
-3. **Complete HTML**: Return ONLY valid HTML from `<!DOCTYPE html>` to `</html>`.
+STYLE GUIDE:
+$styleInstructions
 
-4. **Tailwind CDN**: Include `<script src="https://cdn.tailwindcss.com"></script>` in head.
+Start generating now.
 
-5. **FontAwesome**: Include FontAwesome CDN for icons.
-
-6. **Animation Script**: Include a simple Intersection Observer script at the bottom to fade-in elements when they scroll into view.
-
-7. **JavaScript**: Include all JavaScript directly in the HTML (inside `<script>` tags before `</body>`).
-
-{$colorPrompt}
-
-### UNIQUENESS REQUIREMENT:
-Each website MUST have a unique visual identity. Do NOT use the same color schemes, layouts, or typography combinations. Vary:
-- Color palettes (warm vs cool, saturated vs muted)
-- Layout structures (centered vs split, grid vs flex)
-- Typography sizes and weights
-- Spacing patterns
-- Shadow styles
-
-Start generating now with a UNIQUE and DISTINCTIVE design.
 EOT;
     }
 
@@ -597,8 +573,11 @@ EOT;
      */
     private function buildUserPrompt(string $rawPrompt, array $formData = []): string
     {
+        // Jika gambar dikirim sebagai vision (base64), tidak perlu tambahkan note di sini
+        // Instruksi analisa gambar akan ditambahkan di generateWithGoogleGemini
         $referenceImageNote = '';
         if (!empty($formData['reference_image_path']) && empty($formData['reference_image_base64'])) {
+            // Hanya tambahkan note jika gambar tidak dikirim sebagai vision (fallback untuk OpenRouter)
             $referenceImageNote = "\n\nREFERENCE IMAGE:\nUser telah mengupload gambar referensi untuk desain. Gunakan gambar referensi ini sebagai inspirasi untuk:\n- Layout dan struktur halaman\n- Skema warna dan palet\n- Gaya visual dan estetika\n- Komposisi elemen\n- Mood dan tone desain\n\nPastikan website yang dihasilkan mencerminkan gaya dan estetika dari gambar referensi yang diberikan.";
         }
 
@@ -641,7 +620,6 @@ INSTRUCTIONS:
 5. CRITICAL: The HTML MUST be complete from <!DOCTYPE html> to </html> - include ALL sections and JavaScript inside the HTML.
 6. Do NOT stop generating mid-way - complete ALL sections before ending with </html> tag.
 7. Follow the section order EXACTLY as specified above.
-8. Include the Tailwind config script with custom fonts and colors as specified in the system prompt.
 EOT;
     }
 
@@ -661,9 +639,11 @@ EOT;
             $content = substr($content, $pos);
         }
         
-        // Pastikan HTML lengkap
+        // Pastikan HTML lengkap - jika tidak ada </html>, cari </body> atau tambahkan
         if (!str_contains($content, '</html>')) {
+            // Jika ada </body>, pastikan ada </html> setelahnya
             if (str_contains($content, '</body>')) {
+                // Cek apakah sudah ada </html> setelah </body>
                 $bodyPos = strrpos($content, '</body>');
                 $afterBody = substr($content, $bodyPos + 7);
                 if (!str_contains($afterBody, '</html>')) {
@@ -676,7 +656,7 @@ EOT;
     }
 
     /**
-     * Inject Dependencies - Basic Setup Only (No Hardcoded Styles)
+     * Memastikan library yang dibutuhkan ada (IMPROVED VERSION)
      */
     private function injectDependencies(string $html): string
     {
@@ -687,7 +667,7 @@ EOT;
             $html = str_replace('<html', '<html class="scroll-smooth"', $html);
         }
 
-        // 2. Bersihkan Tailwind versi lama/duplikat
+        // 2. Bersihkan Tailwind versi lama
         $oldTailwindPatterns = [
             '/<link[^>]*href=["\']https:\/\/cdn\.jsdelivr\.net\/npm\/tailwindcss@[^"\']+["\'][^>]*>/i',
             '/<link[^>]*href=["\']https:\/\/unpkg\.com\/tailwindcss@[^"\']+["\'][^>]*>/i',
@@ -698,35 +678,81 @@ EOT;
             $html = preg_replace($pattern, '', $html);
         }
 
-        // Hapus script Tailwind yang mungkin sudah ada (jika AI sudah inject, biarkan)
-        // Kita hanya akan inject jika belum ada
-        $hasTailwindScript = str_contains($html, 'cdn.tailwindcss.com');
+        // Hapus script Tailwind yang mungkin sudah ada (akan di-inject ulang dengan config)
+        $html = preg_replace('/<script[^>]*src=["\']https:\/\/cdn\.tailwindcss\.com["\'][^>]*><\/script>/i', '', $html);
+
+        // 3. Siapkan Dependency Baru (Fonts & Config)
         
-        // 3. Inject Tailwind CDN (hanya jika belum ada)
-        if (!$hasTailwindScript) {
-            $tailwindCDN = '<script src="https://cdn.tailwindcss.com"></script>';
-            
-            if (str_contains($html, '</head>')) {
-                $html = str_replace('</head>', $tailwindCDN . "\n</head>", $html);
-            } else {
-                $html = preg_replace('/(<head[^>]*>)/i', '$1' . "\n" . $tailwindCDN, $html);
+        // Font: Outfit (Modern Headings) & Plus Jakarta Sans (Modern Body)
+        $googleFonts = '<link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">';
+
+        $tailwindCDN = '<script src="https://cdn.tailwindcss.com"></script>';
+        
+        // Config Tailwind Custom agar terlihat Professional
+        $tailwindConfig = <<<SCRIPT
+        <script>
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        fontFamily: {
+                            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                            heading: ['"Outfit"', 'sans-serif'],
+                        },
+                        colors: {
+                            primary: {
+                                50: '#f0f9ff',
+                                100: '#e0f2fe',
+                                500: '#0ea5e9', // Sky Blue modern
+                                600: '#0284c7',
+                                900: '#0c4a6e',
+                            },
+                            dark: '#0f172a',
+                        },
+                        boxShadow: {
+                            'soft': '0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.01)',
+                            'glow': '0 0 20px rgba(14, 165, 233, 0.5)',
+                        }
+                    }
+                }
             }
+        </script>
+        <style>
+            .glass {
+                background: rgba(255, 255, 255, 0.7);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+            }
+            .fade-up {
+                opacity: 0;
+                transform: translateY(30px);
+                transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+            }
+            .fade-up.visible {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        </style>
+        SCRIPT;
+
+        // 4. Inject ke dalam <head>
+        $injectionBlock = $googleFonts . "\n" . $tailwindCDN . "\n" . $tailwindConfig;
+        
+        if (str_contains($html, '</head>')) {
+            $html = str_replace('</head>', $injectionBlock . "\n</head>", $html);
+        } else {
+            $html = preg_replace('/(<head[^>]*>)/i', '$1' . "\n" . $injectionBlock, $html);
         }
 
-        // 4. Inject FontAwesome (Hanya jika belum ada)
+        // 5. Inject FontAwesome (Hanya jika belum ada)
         if (!str_contains($html, 'font-awesome') && !str_contains($html, 'fontawesome')) {
             $fa = '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />';
-            if (str_contains($html, '</head>')) {
-                $html = str_replace('</head>', $fa . "\n</head>", $html);
-            } else {
-                $html = preg_replace('/(<head[^>]*>)/i', '$1' . "\n" . $fa, $html);
-            }
+            $html = str_replace('</head>', $fa . "\n</head>", $html);
         }
 
-        // 5. Inject Script Animasi Scroll Dasar (Intersection Observer)
-        // Hanya jika belum ada script serupa
-        if (!str_contains($html, 'IntersectionObserver') && !str_contains($html, 'fade-up')) {
-            $scrollScript = <<<SCRIPT
+        // 6. Inject Script Animasi Scroll (Intersection Observer)
+        $scrollScript = <<<SCRIPT
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 // Mobile Menu Logic
@@ -738,7 +764,7 @@ EOT;
                     });
                 }
 
-                // Scroll Animation Logic (basic)
+                // Scroll Animation Logic
                 const observer = new IntersectionObserver((entries) => {
                     entries.forEach(entry => {
                         if (entry.isIntersecting) {
@@ -749,20 +775,17 @@ EOT;
 
                 // Apply to sections and cards
                 document.querySelectorAll('section, .card, .bg-white, h1, h2, img').forEach(el => {
-                    if (!el.classList.contains('fade-up')) {
-                        el.classList.add('fade-up');
-                        observer.observe(el);
-                    }
+                    el.classList.add('fade-up');
+                    observer.observe(el);
                 });
             });
         </script>
         SCRIPT;
 
-            if (str_contains($html, '</body>')) {
-                $html = str_replace('</body>', $scrollScript . "\n</body>", $html);
-            } else {
-                $html .= $scrollScript . "\n</body>\n</html>";
-            }
+        if (str_contains($html, '</body>')) {
+            $html = str_replace('</body>', $scrollScript . "\n</body>", $html);
+        } else {
+            $html .= $scrollScript . "\n</body>\n</html>";
         }
         
         // Pastikan HTML lengkap
@@ -773,9 +796,6 @@ EOT;
         return $html;
     }
 
-    /**
-     * Handle OpenRouter API errors
-     */
     private function handleApiError($response)
     {
         $body = $response->json();
@@ -789,6 +809,7 @@ EOT;
             'response' => $body,
         ]);
 
+        // Handle specific error codes
         if ($statusCode === 401 || $errorCode === 401) {
             $message = "API Key tidak valid atau tidak ditemukan. ";
             $message .= "Silakan periksa OPENROUTER_API_KEY di file .env dan pastikan API key Anda valid di https://openrouter.ai/keys";
@@ -809,6 +830,7 @@ EOT;
             $message = "Request tidak valid. ";
             if (isset($body['error']['message'])) {
                 $errorMessage = $body['error']['message'];
+                // Handle token limit error specifically
                 if (str_contains(strtolower($errorMessage), 'token') || str_contains(strtolower($errorMessage), 'exceed')) {
                     $message = "Prompt terlalu panjang atau melebihi batas token model. ";
                     $message .= "Silakan gunakan prompt yang lebih singkat atau kurangi detail yang diminta.";
@@ -821,6 +843,7 @@ EOT;
             throw new \RuntimeException($message);
         }
 
+        // Generic error message
         $message = "Gagal generate website: $errorMsg";
         if ($statusCode >= 500) {
             $message .= " (Server error dari OpenRouter. Silakan coba lagi nanti.)";
@@ -830,53 +853,17 @@ EOT;
     }
 
     /**
-     * Handle Google Gemini API errors
+     * Extract JavaScript dari HTML
      */
-    private function handleGeminiApiError($response): void
+    private function extractJavaScript(string $html): ?string
     {
-        $body = $response->json();
-        $statusCode = $response->status();
-        $errorMsg = $body['error']['message'] ?? $response->body();
+        preg_match_all('/<script[^>]*>(.*?)<\/script>/is', $html, $matches);
         
-        Log::error('Google Gemini API Error', [
-            'status' => $statusCode,
-            'response' => $body,
-        ]);
-
-        if ($statusCode === 401 || $statusCode === 403) {
-            $message = "API Key tidak valid atau tidak memiliki akses. ";
-            $message .= "Silakan periksa GOOGLE_GEMINI_API_KEY di file .env dan pastikan API key Anda valid di https://makersuite.google.com/app/apikey";
-            throw new \RuntimeException($message);
+        if (empty($matches[1])) {
+            return null;
         }
 
-        if ($statusCode === 429) {
-            $message = "Rate limit tercapai untuk Google Gemini API. ";
-            $message .= "Silakan coba lagi dalam beberapa detik.";
-            throw new \RuntimeException($message);
-        }
-
-        if ($statusCode === 400 || $statusCode === 404) {
-            $message = "Request tidak valid ke Google Gemini API. ";
-            if (isset($body['error']['message'])) {
-                $errorMessage = $body['error']['message'];
-                $message .= $errorMessage;
-                
-                if (str_contains(strtolower($errorMessage), 'not found') || str_contains(strtolower($errorMessage), 'not supported')) {
-                    $message .= "\n\nSaran: Model yang tersedia untuk v1beta API: gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-pro-latest, atau gemini-1.5-pro. ";
-                    $message .= "Ubah GOOGLE_GEMINI_MODEL di file .env menjadi salah satu model tersebut. ";
-                    $message .= "Sistem akan otomatis mencoba model lain jika model yang diminta tidak tersedia.";
-                }
-            } else {
-                $message .= "Periksa format request dan pastikan model yang digunakan tersedia.";
-            }
-            throw new \RuntimeException($message);
-        }
-
-        $message = "Gagal generate website dengan Google Gemini: $errorMsg";
-        if ($statusCode >= 500) {
-            $message .= " (Server error dari Google Gemini. Silakan coba lagi nanti.)";
-        }
-
-        throw new \RuntimeException($message);
+        $js = implode("\n\n", $matches[1]);
+        return trim($js) ?: null;
     }
 }
