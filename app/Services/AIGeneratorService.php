@@ -866,4 +866,368 @@ EOT;
         $js = implode("\n\n", $matches[1]);
         return trim($js) ?: null;
     }
+
+    /**
+     * Improve website dengan hanya mengubah bagian spesifik yang diminta
+     * (font, warna, teks, bentuk) tanpa merubah struktur total
+     * 
+     * @param string $existingHtml HTML yang sudah ada
+     * @param string $improvePrompt Instruksi perbaikan spesifik
+     * @param array $formData Form data termasuk ai_provider
+     */
+    public function improveWebsite(string $existingHtml, string $improvePrompt, array $formData = []): array
+    {
+        $provider = $formData['ai_provider'] ?? 'openrouter';
+        
+        if ($provider === 'google_gemini') {
+            return $this->improveWithGoogleGemini($existingHtml, $improvePrompt, $formData);
+        }
+        
+        return $this->improveWithOpenRouter($existingHtml, $improvePrompt, $formData);
+    }
+
+    /**
+     * Improve website menggunakan OpenRouter API
+     */
+    private function improveWithOpenRouter(string $existingHtml, string $improvePrompt, array $formData = []): array
+    {
+        $apiKey = config('services.openrouter.key');
+        $baseUrl = config('services.openrouter.base_url', 'https://openrouter.ai/api/v1/chat/completions');
+        $referer = config('services.openrouter.referer', config('app.url'));
+        $title = config('services.openrouter.title', 'AI Web Generator');
+        $model = config('services.openrouter.model', 'anthropic/claude-3.5-sonnet');
+
+        if (empty($apiKey)) {
+            throw new \RuntimeException('OPENROUTER_API_KEY tidak ditemukan di file .env.');
+        }
+
+        // Build system prompt khusus untuk improve
+        $systemPrompt = $this->buildImproveSystemPrompt();
+
+        // Build user prompt dengan HTML existing dan improve instruction
+        $userPrompt = $this->buildImproveUserPrompt($existingHtml, $improvePrompt);
+
+        // Estimasi token
+        $estimatedSystemTokens = intval(strlen($systemPrompt) / 3.5);
+        $estimatedUserTokens = intval(strlen($userPrompt) / 3.5);
+        $totalInputTokens = $estimatedSystemTokens + $estimatedUserTokens;
+        
+        $maxInputTokens = 45000;
+        if ($totalInputTokens > $maxInputTokens) {
+            $maxUserPromptLength = intval(($maxInputTokens - $estimatedSystemTokens) * 3.5);
+            if ($maxUserPromptLength > 1000) {
+                $userPrompt = substr($userPrompt, 0, $maxUserPromptLength) . "\n\n[Catatan: HTML dipotong karena terlalu panjang.]";
+                Log::warning('Improve prompt terlalu panjang, dipotong', [
+                    'estimated_tokens' => $totalInputTokens,
+                ]);
+            }
+        }
+
+        // Tentukan max_tokens
+        $maxOutputTokens = 16000;
+        if (str_contains(strtolower($model), 'nova')) {
+            $maxOutputTokens = 15000;
+        } elseif (str_contains(strtolower($model), 'claude')) {
+            $maxOutputTokens = 8000;
+        } elseif (str_contains(strtolower($model), 'gpt-4')) {
+            $maxOutputTokens = 8000;
+        }
+
+        $messages = [
+            ['role' => 'system', 'content' => $systemPrompt],
+            ['role' => 'user', 'content' => $userPrompt],
+        ];
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $apiKey,
+                'HTTP-Referer' => $referer,
+                'X-Title' => $title,
+                'Content-Type' => 'application/json',
+            ])->timeout(120)->post($baseUrl, [
+                'model' => $model,
+                'messages' => $messages,
+                'temperature' => 0.5, // Lebih rendah untuk lebih konsisten
+                'max_tokens' => $maxOutputTokens,
+            ]);
+
+            if (!$response->successful()) {
+                $this->handleApiError($response);
+            }
+
+            $responseBody = $response->json();
+            Log::info('OpenRouter Improve API Response', [
+                'status' => $response->status(),
+            ]);
+
+            $content = $response->json('choices.0.message.content');
+            
+            if (empty($content)) {
+                $content = $response->json('choices.0.text') 
+                    ?? $response->json('data.0.text')
+                    ?? $response->json('content');
+            }
+            
+            if (empty($content)) {
+                Log::error('AI returned empty response for improve', [
+                    'response_status' => $response->status(),
+                    'response_body' => $responseBody,
+                ]);
+                
+                throw new \RuntimeException('AI service mengembalikan response kosong. Silakan coba lagi dalam beberapa saat.');
+            }
+
+            // Post-Processing
+            $content = $this->cleanOutput($content);
+            
+            // Validasi bahwa HTML masih lengkap setelah cleanOutput
+            if (empty($content) || trim($content) === '') {
+                Log::error('HTML menjadi kosong setelah cleanOutput', [
+                    'original_length' => strlen($response->json('choices.0.message.content') ?? ''),
+                ]);
+                throw new \RuntimeException('HTML menjadi kosong setelah pemrosesan. Silakan coba lagi.');
+            }
+
+            // Pastikan HTML memiliki struktur dasar
+            if (!str_contains($content, '<html') && !str_contains($content, '<!DOCTYPE')) {
+                Log::warning('HTML mungkin tidak lengkap setelah improve', [
+                    'content_preview' => substr($content, 0, 200),
+                ]);
+                // Tetap kembalikan, mungkin AI mengembalikan partial HTML
+            }
+
+            // Jangan inject dependencies lagi karena sudah ada di HTML existing
+            // Hanya pastikan struktur HTML valid
+
+            return [
+                'html' => $content,
+                'css' => null,
+                'js' => null,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('OpenRouter Improve Failed: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Improve website menggunakan Google Gemini API
+     */
+    private function improveWithGoogleGemini(string $existingHtml, string $improvePrompt, array $formData = []): array
+    {
+        $apiKey = config('services.google_gemini.key');
+        $baseUrl = config('services.google_gemini.base_url', 'https://generativelanguage.googleapis.com/v1beta');
+        
+        if (empty($apiKey)) {
+            throw new \RuntimeException('GOOGLE_GEMINI_API_KEY tidak ditemukan di file .env.');
+        }
+
+        $requestedModel = config('services.google_gemini.model', 'gemini-2.5-flash');
+        $availableModels = [
+            'gemini-2.5-flash',
+            'gemini-2.0-flash',
+            'gemini-1.5-pro-latest',
+            'gemini-1.5-pro',
+        ];
+        
+        if (!in_array($requestedModel, $availableModels)) {
+            array_unshift($availableModels, $requestedModel);
+        } else {
+            $key = array_search($requestedModel, $availableModels);
+            if ($key !== false) {
+                unset($availableModels[$key]);
+                array_unshift($availableModels, $requestedModel);
+            }
+        }
+
+        $systemPrompt = $this->buildImproveSystemPrompt();
+        $userPrompt = $this->buildImproveUserPrompt($existingHtml, $improvePrompt);
+        $fullPrompt = $systemPrompt . "\n\n" . $userPrompt;
+
+        $contentParts = [
+            ['text' => $fullPrompt]
+        ];
+
+        $lastError = null;
+        $response = null;
+        $successfulModel = null;
+        
+        foreach ($availableModels as $tryModel) {
+            $url = "{$baseUrl}/models/{$tryModel}:generateContent?key={$apiKey}";
+            
+            try {
+                $response = Http::withHeaders([
+                    'Content-Type' => 'application/json',
+                ])->timeout(120)->post($url, [
+                    'contents' => [
+                        [
+                            'parts' => $contentParts
+                        ]
+                    ],
+                    'generationConfig' => [
+                        'temperature' => 0.5, // Lebih rendah untuk lebih konsisten
+                        'topK' => 40,
+                        'topP' => 0.95,
+                        'maxOutputTokens' => 32768,
+                    ],
+                ]);
+
+                if ($response->successful()) {
+                    $successfulModel = $tryModel;
+                    break;
+                }
+                
+                if ($response->status() === 400 || $response->status() === 404) {
+                    $errorBody = $response->json();
+                    $errorMsg = $errorBody['error']['message'] ?? '';
+                    if (str_contains(strtolower($errorMsg), 'not found') || str_contains(strtolower($errorMsg), 'not supported')) {
+                        $lastError = $errorMsg;
+                        continue;
+                    }
+                }
+                
+                $this->handleGeminiApiError($response);
+                
+            } catch (\Exception $e) {
+                $lastError = $e->getMessage();
+                continue;
+            }
+        }
+        
+        if (!$response || !$response->successful()) {
+            $modelsList = implode(', ', $availableModels);
+            if ($lastError) {
+                throw new \RuntimeException("Semua model yang dicoba gagal. Error terakhir: {$lastError}. Model yang tersedia: {$modelsList}");
+            }
+            $this->handleGeminiApiError($response);
+        }
+
+        $responseBody = $response->json();
+        Log::info('Google Gemini Improve API Response', [
+            'status' => $response->status(),
+            'model_used' => $successfulModel ?? $requestedModel,
+        ]);
+
+        $content = $response->json('candidates.0.content.parts.0.text');
+        
+        if (empty($content)) {
+            Log::error('Google Gemini returned empty response for improve', [
+                'response_status' => $response->status(),
+                'response_body' => $responseBody,
+            ]);
+            
+            throw new \RuntimeException('Google Gemini mengembalikan response kosong. Silakan coba lagi dalam beberapa saat.');
+        }
+
+        $content = $this->cleanOutput($content);
+        
+        // Validasi bahwa HTML masih lengkap setelah cleanOutput
+        if (empty($content) || trim($content) === '') {
+            Log::error('HTML menjadi kosong setelah cleanOutput (Gemini)', [
+                'original_length' => strlen($response->json('candidates.0.content.parts.0.text') ?? ''),
+            ]);
+            throw new \RuntimeException('HTML menjadi kosong setelah pemrosesan. Silakan coba lagi.');
+        }
+
+        // Pastikan HTML memiliki struktur dasar
+        if (!str_contains($content, '<html') && !str_contains($content, '<!DOCTYPE')) {
+            Log::warning('HTML mungkin tidak lengkap setelah improve (Gemini)', [
+                'content_preview' => substr($content, 0, 200),
+            ]);
+            // Tetap kembalikan, mungkin AI mengembalikan partial HTML
+        }
+
+        return [
+            'html' => $content,
+            'css' => null,
+            'js' => null,
+        ];
+    }
+
+    /**
+     * Build system prompt khusus untuk improve (hanya mengubah spesifik)
+     */
+    private function buildImproveSystemPrompt(): string
+    {
+        return <<<EOT
+You are a skilled Frontend Developer specializing in making PRECISE, TARGETED modifications to existing HTML code.
+
+Your task is to modify ONLY the specific parts requested by the user, while keeping the ENTIRE rest of the code EXACTLY the same.
+
+### CRITICAL RULES:
+
+1. **PRESERVE STRUCTURE**: Do NOT change the overall structure, layout, or sections of the website. Keep all sections, divs, and containers exactly as they are.
+
+2. **TARGETED MODIFICATIONS ONLY**: Only modify:
+   - Font styles (font-family, font-size, font-weight, etc.)
+   - Colors (text colors, background colors, border colors)
+   - Text content (specific text changes requested)
+   - Shape/styling (border-radius, shadows, borders, etc.)
+   - Specific CSS classes or inline styles
+
+3. **DO NOT CHANGE**:
+   - HTML structure and element hierarchy
+   - Section order or layout
+   - JavaScript code (unless specifically requested)
+   - Meta tags, head content (unless specifically requested)
+   - Overall design structure
+
+4. **OUTPUT FORMAT**:
+   - Return the COMPLETE HTML code from <!DOCTYPE html> to </html>
+   - Include ALL original code with ONLY the requested modifications applied
+   - Maintain all original classes, IDs, and attributes
+   - Keep all scripts, styles, and dependencies intact
+
+5. **MODIFICATION APPROACH**:
+   - If user asks to change font: Only modify font-family classes or styles
+   - If user asks to change color: Only modify color-related classes or styles, AND update tailwind.config if colors are defined there
+   - If user asks to change text: Only modify the text content in the specified elements
+   - If user asks to change shape: Only modify border-radius, shape-related classes
+   - If there are duplicate configurations (like multiple tailwind.config blocks), remove duplicates and keep only one consistent configuration
+
+6. **COLOR THEME CONSISTENCY**:
+   - When changing colors, ensure consistency across:
+     * tailwind.config color definitions
+     * CSS classes using those colors (bg-primary, text-primary, etc.)
+     * Inline styles
+   - Remove duplicate color definitions and keep only one source of truth
+   - Update all references to use the same color values
+
+Remember: Your goal is to make MINIMAL, PRECISE changes while preserving everything else. Ensure color consistency across the entire document.
+EOT;
+    }
+
+    /**
+     * Build user prompt untuk improve dengan HTML existing
+     */
+    private function buildImproveUserPrompt(string $existingHtml, string $improvePrompt): string
+    {
+        return <<<EOT
+EXISTING HTML CODE:
+```
+{$existingHtml}
+```
+
+IMPROVEMENT REQUEST:
+"{$improvePrompt}"
+
+INSTRUCTIONS:
+1. Analyze the existing HTML code carefully.
+2. Identify ONLY the specific parts that need to be modified based on the improvement request.
+3. Make PRECISE modifications to ONLY those parts (font, color, text, shape, etc.).
+4. Keep ALL other code EXACTLY the same - do not change structure, layout, or sections.
+5. Return the COMPLETE modified HTML code from <!DOCTYPE html> to </html>.
+6. Ensure all modifications are applied correctly while preserving the original design structure.
+
+Examples of what to modify:
+- "Ubah warna header menjadi biru" → Only change color classes/styles in header section
+- "Ganti font menjadi Arial" → Only change font-family classes/styles
+- "Ubah teks 'Selamat Datang' menjadi 'Welcome'" → Only change that specific text
+- "Buat tombol lebih bulat" → Only change border-radius on buttons
+- "Ubah warna background section hero" → Only change background color in hero section
+- "Perbaiki warna tema menjadi biru-putih" → Update tailwind.config colors AND all color classes throughout the HTML to match the blue-white theme
+- "Hapus duplikasi konfigurasi Tailwind" → Remove duplicate tailwind.config blocks and keep only one consistent configuration
+EOT;
+    }
 }

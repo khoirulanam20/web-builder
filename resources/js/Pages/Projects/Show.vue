@@ -8,6 +8,7 @@ import AcernityCard from '@/Components/Acernity/Card.vue';
 import AcernityButton from '@/Components/Acernity/Button.vue';
 import AcernityBadge from '@/Components/Acernity/Badge.vue';
 import AcernityTextarea from '@/Components/Acernity/Textarea.vue';
+import AcernitySelect from '@/Components/Acernity/Select.vue';
 
 const props = defineProps({
     project: {
@@ -36,6 +37,7 @@ const editForm = useForm({
 
 const improveForm = useForm({
     improve_prompt: '',
+    ai_provider: 'openrouter',
 });
 
 const jsCode = computed(() => {
@@ -101,7 +103,7 @@ const submitImprove = () => {
 
     showConfirm({
         title: 'Improve Website?',
-        text: 'Website akan di-generate ulang dengan instruksi perbaikan yang Anda berikan. Proses ini mungkin memakan waktu beberapa saat.',
+        text: 'Hanya bagian spesifik yang diminta akan diubah (font, warna, teks, bentuk). Struktur website tetap sama. Proses ini mungkin memakan waktu beberapa saat.',
         icon: 'question',
         confirmText: 'Ya, Improve',
         confirmColor: '#8b5cf6',
@@ -511,18 +513,37 @@ const handleRepublish = () => {
                         IMPROVE WEBSITE
                     </h3>
                     <p class="mt-1 text-sm font-bold text-gray-400">
-                        Jelaskan apa yang ingin diperbaiki atau ditambahkan pada website ini.
+                        Jelaskan perubahan spesifik yang ingin dilakukan (font, warna, teks, bentuk). Struktur website tidak akan berubah.
                     </p>
                 </div>
                 <form
                     @submit.prevent="submitImprove"
                     class="space-y-4"
                 >
+                    <!-- AI Provider Selection -->
+                    <AcernitySelect
+                        id="ai_provider"
+                        v-model="improveForm.ai_provider"
+                        label="Provider AI"
+                        hint="Pilih provider AI yang akan digunakan untuk improve website"
+                        :error="improveForm.errors.ai_provider"
+                    >
+                        <option value="openrouter">OpenRouter (Claude, GPT, dll)</option>
+                        <option value="google_gemini">Google Gemini (Langsung)</option>
+                    </AcernitySelect>
+                    <p class="text-xs font-bold text-gray-400 -mt-2">
+                        <span v-if="improveForm.ai_provider === 'openrouter'">
+                            Menggunakan OpenRouter untuk akses berbagai model AI. Jika rate limit, coba pilih Google Gemini.
+                        </span>
+                        <span v-else>
+                            Menggunakan Google Gemini API langsung. Alternatif jika OpenRouter rate limit.
+                        </span>
+                    </p>
                     <AcernityTextarea
                         id="improve_prompt"
                         v-model="improveForm.improve_prompt"
                         :rows="6"
-                        placeholder="Contoh: Tambahkan section testimoni, perbaiki warna header, tambahkan animasi scroll, dll."
+                        placeholder="Contoh: Ubah warna header menjadi biru, Ganti font menjadi Arial, Ubah teks 'Selamat Datang' menjadi 'Welcome', Buat tombol lebih bulat, Ubah warna background section hero menjadi gradient biru, dll."
                         :error="improveForm.errors.improve_prompt"
                     />
                     <div class="flex justify-end gap-3">
